@@ -24,15 +24,15 @@ scr [flags] <command> [script]
 
 ## Script Actions
 
-| Action     | Syntax             | Behavior                        |
-| ---------- | ------------------ | ------------------------------- |
-| Type       | `Type 'text'`      | Type text (50ms/char default)   |
-| Type speed | `Type@30ms 'text'` | Type with custom per-char delay |
-| Sleep      | `Sleep 500ms`      | Pause for duration (ms or s)    |
-| Key        | `Enter`            | Press key once                  |
-| Key repeat | `Down 3`           | Press key N times               |
-| Key delay  | `Enter@200ms`      | Delay before keypress           |
-| Ctrl combo | `Ctrl+C`           | Send control character          |
+| Action     | Syntax             | Behavior                                                           |
+| ---------- | ------------------ | ------------------------------------------------------------------ |
+| Type       | `Type 'text'`      | Type text (50ms/char default); supports spaces + ASCII punctuation |
+| Type speed | `Type@30ms 'text'` | Type with custom per-char delay                                    |
+| Sleep      | `Sleep 500ms`      | Pause for duration (ms or s)                                       |
+| Key        | `Enter`            | Press key once                                                     |
+| Key repeat | `Down 3`           | Press key N times                                                  |
+| Key delay  | `Enter@200ms`      | Delay before keypress                                              |
+| Ctrl combo | `Ctrl+C`           | Send control character                                             |
 
 ## Supported Keys
 
@@ -54,6 +54,7 @@ scr "cat README.md"
 
 ```bash
 scr bash "Type 'echo hello' Enter"
+scr bash "Type \"echo 'hello / ?'\" Enter"
 scr bash "Type 'npm test' Enter Sleep 5s"
 ```
 

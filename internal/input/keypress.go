@@ -5,30 +5,33 @@ import (
 	"strings"
 )
 
-// specialKeys maps recognized special key names to a boolean indicator.
-var specialKeys = map[string]bool{
-	"enter":     true,
-	"escape":    true,
-	"tab":       true,
-	"up":        true,
-	"down":      true,
-	"left":      true,
-	"right":     true,
-	"home":      true,
-	"end":       true,
-	"backspace": true,
-	"delete":    true,
-	"ctrl+c":    true,
-	"ctrl+d":    true,
+var specialKeyCodes = map[string]string{
+	"enter":     "Enter",
+	"escape":    "Escape",
+	"tab":       "Tab",
+	"space":     "Space",
+	"up":        "ArrowUp",
+	"down":      "ArrowDown",
+	"left":      "ArrowLeft",
+	"right":     "ArrowRight",
+	"home":      "Home",
+	"end":       "End",
+	"pageup":    "PageUp",
+	"pagedown":  "PageDown",
+	"backspace": "Backspace",
+	"delete":    "Delete",
+	"ctrl+c":    "c",
+	"ctrl+d":    "d",
 }
 
-// isAlphanumeric checks if a key is a single alphanumeric character.
-func isAlphanumeric(key string) bool {
+// isSinglePrintableASCII reports whether key is exactly one printable ASCII character.
+// This intentionally excludes non-ASCII and control characters.
+func isSinglePrintableASCII(key string) bool {
 	if len(key) != 1 {
 		return false
 	}
-	char := key[0]
-	return (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9')
+	ch := key[0]
+	return ch >= 0x20 && ch <= 0x7e
 }
 
 // ParseKeypresses splits a comma-separated keypress string into individual keys.
@@ -59,11 +62,11 @@ func ParseKeypresses(keypressStr string) ([]string, error) {
 // IsValidKey checks if a key is valid (either alphanumeric or a recognized special key).
 // Check is case-insensitive for special keys.
 func IsValidKey(key string) bool {
-	if isAlphanumeric(key) {
+	if isSinglePrintableASCII(key) {
 		return true
 	}
-
-	return specialKeys[strings.ToLower(key)]
+	_, ok := specialKeyCodes[strings.ToLower(key)]
+	return ok
 }
 
 // KeyToKeyCode maps a key name to its Chrome DevTools Protocol key code.
@@ -72,29 +75,16 @@ func IsValidKey(key string) bool {
 // Ctrl+C and Ctrl+D return "c" and "d" respectively.
 // Returns error if the key is not recognized.
 func KeyToKeyCode(key string) (string, error) {
-	if isAlphanumeric(key) {
+	// Single character keys are sent directly, except space which is a named key in CDP.
+	if isSinglePrintableASCII(key) {
+		if key == " " {
+			return "Space", nil
+		}
 		return key, nil
 	}
 
-	// Special keys mapping (case-insensitive)
-	specialKeyMap := map[string]string{
-		"enter":     "Enter",
-		"escape":    "Escape",
-		"tab":       "Tab",
-		"up":        "ArrowUp",
-		"down":      "ArrowDown",
-		"left":      "ArrowLeft",
-		"right":     "ArrowRight",
-		"home":      "Home",
-		"end":       "End",
-		"backspace": "Backspace",
-		"delete":    "Delete",
-		"ctrl+c":    "c",
-		"ctrl+d":    "d",
-	}
-
 	lowerKey := strings.ToLower(key)
-	if code, exists := specialKeyMap[lowerKey]; exists {
+	if code, exists := specialKeyCodes[lowerKey]; exists {
 		return code, nil
 	}
 

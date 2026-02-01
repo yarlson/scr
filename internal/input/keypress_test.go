@@ -107,6 +107,21 @@ func TestIsValidKey_AlphanumericAndSpecial(t *testing.T) {
 			valid: true,
 		},
 		{
+			name:  "single slash",
+			key:   "/",
+			valid: true,
+		},
+		{
+			name:  "single question mark",
+			key:   "?",
+			valid: true,
+		},
+		{
+			name:  "single space",
+			key:   " ",
+			valid: true,
+		},
+		{
 			name:  "Enter key",
 			key:   "Enter",
 			valid: true,
@@ -159,6 +174,21 @@ func TestIsValidKey_AlphanumericAndSpecial(t *testing.T) {
 		{
 			name:  "Delete key",
 			key:   "Delete",
+			valid: true,
+		},
+		{
+			name:  "Space key",
+			key:   "Space",
+			valid: true,
+		},
+		{
+			name:  "PageUp key",
+			key:   "PageUp",
+			valid: true,
+		},
+		{
+			name:  "PageDown key",
+			key:   "PageDown",
 			valid: true,
 		},
 		{
@@ -247,6 +277,24 @@ func TestKeyToKeyCode_SingleChars(t *testing.T) {
 			want:    "5",
 			wantErr: false,
 		},
+		{
+			name:    "single slash",
+			key:     "/",
+			want:    "/",
+			wantErr: false,
+		},
+		{
+			name:    "single question mark",
+			key:     "?",
+			want:    "?",
+			wantErr: false,
+		},
+		{
+			name:    "literal space char",
+			key:     " ",
+			want:    "Space",
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -288,6 +336,12 @@ func TestKeyToKeyCode_SpecialKeys(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name:    "Space key",
+			key:     "Space",
+			want:    "Space",
+			wantErr: false,
+		},
+		{
 			name:    "Up arrow",
 			key:     "Up",
 			want:    "ArrowUp",
@@ -321,6 +375,18 @@ func TestKeyToKeyCode_SpecialKeys(t *testing.T) {
 			name:    "End key",
 			key:     "End",
 			want:    "End",
+			wantErr: false,
+		},
+		{
+			name:    "PageUp key",
+			key:     "PageUp",
+			want:    "PageUp",
+			wantErr: false,
+		},
+		{
+			name:    "PageDown key",
+			key:     "PageDown",
+			want:    "PageDown",
 			wantErr: false,
 		},
 		{
