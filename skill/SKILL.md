@@ -111,15 +111,7 @@ Error: unknown key 'Foo' at position 15; valid keys: Enter, Tab, ...
 
 ## Prerequisites
 
-Requires `ttyd` in PATH:
-
-```bash
-# macOS
-brew install ttyd
-
-# Linux
-apt-get install ttyd
-```
+Requires `ttyd` in PATH. If installed via Homebrew, `ttyd` is installed automatically as a dependency; otherwise install `ttyd` separately.
 
 Chrome/Chromium must be available (chromedp auto-detects).
 

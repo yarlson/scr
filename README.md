@@ -14,19 +14,8 @@ Runs any CLI or TUI command in a real terminal (ttyd + headless Chrome), execute
 
 ### Prerequisites
 
-- **ttyd** — terminal sharing daemon
+- **ttyd** — terminal sharing daemon (installed automatically if you install `scr` via Homebrew; otherwise install `ttyd` separately)
 - **Chrome/Chromium** — for headless screenshot capture
-
-```bash
-# macOS
-brew install ttyd
-
-# Ubuntu/Debian
-apt-get install ttyd
-
-# Fedora/RHEL
-dnf install ttyd
-```
 
 ### Homebrew (macOS/Linux)
 
