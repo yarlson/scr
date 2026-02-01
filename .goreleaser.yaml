@@ -4,11 +4,6 @@ project_name: scr
 
 metadata:
   mod_timestamp: "{{ .CommitTimestamp }}"
-  license: "MIT"
-  homepage: "https://github.com/yarlson/scr"
-  description: "Automated terminal screenshots. Script interactions, capture PNGs."
-  maintainers:
-    - "Yar Kravtsov <yarlson@gmail.com>"
 
 snapshot:
   version_template: "0.0.0-{{ .Timestamp }}"
@@ -51,11 +46,13 @@ brews:
       owner: yarlson
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    homepage: "https://github.com/yarlson/scr"
+    description: "Automated terminal screenshots. Script interactions, capture PNGs."
+    license: "MIT"
     skip_upload: "{{ with .Prerelease }}true{{ end }}"
     commit_author:
       name: "Yar Kravtsov"
       email: "yarlson@gmail.com"
-    goarm: 7
 
 changelog:
   sort: asc
