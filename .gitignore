@@ -1,0 +1,7 @@
+# lgtm workflow files
+.lgtm/
+PRD.md
+/tui-capture
+
+# Generated screenshot artifacts
+/cmd/screenshots/

@@ -1,0 +1,51 @@
+version: "2"
+linters:
+  enable:
+    - bodyclose
+    - goprintffuncname
+    - misspell
+    - noctx
+    - nolintlint
+    - rowserrcheck
+    - sqlclosecheck
+    - staticcheck
+    - tparallel
+    - whitespace
+  disable:
+    - errcheck
+    - ineffassign
+    - unused
+  exclusions:
+    generated: lax
+    presets:
+      - common-false-positives
+    rules:
+      - text: '(slog|log)\.\w+'
+        linters:
+          - noctx
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+formatters:
+  enable:
+    - gci
+    - gofumpt
+    - goimports
+  exclusions:
+    generated: lax
+
+  settings:
+    gofumpt:
+      module-path: tui-capture
+      extra-rules: true
+
+    goimports:
+      local-prefixes:
+        - tui-capture
+
+    gci:
+      sections:
+        - standard
+        - default
+        - localmodule
+      custom-order: true
