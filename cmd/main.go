@@ -22,19 +22,17 @@ import (
 func NewRootCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "scr [flags] COMMAND [SCRIPT]",
-		Short: "Capture TUI interactions and generate screenshots",
-		Long: `scr captures screenshots of terminal interactions.
+		Short: "Automated terminal screenshots",
+		Long: `Run CLI/TUI commands, script interactions, capture PNGs.
 
 Usage:
   scr [flags] COMMAND
   scr [flags] COMMAND SCRIPT
 
 Examples:
-  # Static capture - just run a command
-  scr bash
-
-  # With tape script
-  scr bash "Type 'echo hello' Enter"`,
+  scr "ls -la"
+  scr bash "Type 'echo hello' Enter"
+  scr "seq 100 | fzf" "Down 5 Enter"`,
 		Args: cobra.RangeArgs(0, 2),
 		RunE: runCommand,
 	}

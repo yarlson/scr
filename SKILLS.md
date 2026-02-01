@@ -1,6 +1,6 @@
 # scr
 
-Capture TUI screenshots with scripted interactions.
+Automated terminal screenshots. Script interactions, capture PNGs.
 
 ```
 scr [flags] <command> [script]

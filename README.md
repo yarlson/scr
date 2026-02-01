@@ -1,14 +1,14 @@
 # scr
 
-Capture TUI screenshots with scripted interactions.
+Automated terminal screenshots. Script interactions, capture PNGs.
 
 ```bash
 scr bash "Type 'echo hello' Enter"
 ```
 
-## Overview
+## What it does
 
-`scr` automates terminal UI testing and documentation by running commands through ttyd in headless Chrome, executing scripted interactions, and capturing PNG screenshots. No more counting commas in parallel arrays — just write what you want to happen.
+Runs any CLI or TUI command in a real terminal (ttyd + headless Chrome), executes your scripted keypresses, captures PNG screenshots at each step. Works with static commands, interactive prompts, full-screen TUIs, REPLs, editors.
 
 ## Installation
 
