@@ -60,6 +60,8 @@ homebrew_casks:
           if OS.mac?
             system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/scr"]
           end
+    dependencies:
+      - formula: ttyd
 
 changelog:
   sort: asc
