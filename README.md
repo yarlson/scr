@@ -14,11 +14,8 @@ Runs any CLI or TUI command in a real terminal (ttyd + headless Chrome), execute
 
 ### Prerequisites
 
-- **Go 1.21+**
 - **ttyd** — terminal sharing daemon
 - **Chrome/Chromium** — for headless screenshot capture
-
-### Install ttyd
 
 ```bash
 # macOS
@@ -31,18 +28,39 @@ apt-get install ttyd
 dnf install ttyd
 ```
 
-### Install scr
+### Homebrew (macOS/Linux)
 
 ```bash
-go install github.com/yarlson/scr@latest
+brew tap yarlson/tap
+brew install scr
 ```
 
-Or build from source:
+### Go
+
+```bash
+go install github.com/yarlson/scr/cmd@latest
+```
+
+### From source
 
 ```bash
 git clone https://github.com/yarlson/scr.git
 cd scr
 go build -o scr ./cmd
+```
+
+### Agent Skill
+
+Install as a skill for Claude Code, OpenCode, Cursor, and other AI agents:
+
+```bash
+npx skills add https://github.com/yarlson/scr/tree/main/skill
+```
+
+Or install to specific agents:
+
+```bash
+npx skills add https://github.com/yarlson/scr/tree/main/skill -a claude-code -a opencode
 ```
 
 ## Quick Start
