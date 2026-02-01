@@ -245,3 +245,7 @@ scr bash "Type hello"
 # Right
 scr bash "Type 'hello'"
 ```
+
+## License
+
+[MIT](LICENSE)
