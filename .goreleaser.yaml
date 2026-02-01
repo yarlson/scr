@@ -13,7 +13,8 @@ before:
     - go mod tidy
 
 builds:
-  - env:
+  - main: ./cmd
+    env:
       - CGO_ENABLED=0
     goos:
       - linux
@@ -41,7 +42,7 @@ archives:
 checksum:
   name_template: "checksums.txt"
 
-brews:
+homebrew_casks:
   - repository:
       owner: yarlson
       name: homebrew-tap
@@ -53,6 +54,13 @@ brews:
     commit_author:
       name: "Yar Kravtsov"
       email: "yarlson@gmail.com"
+    # Required for unsigned binaries on macOS
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/scr"]
+          end
 
 changelog:
   sort: asc
