@@ -54,8 +54,27 @@ func (s *TTydServer) Start(ctx context.Context) error {
 		return fmt.Errorf("ttyd binary not found. Install ttyd and ensure it's in PATH. Visit: https://github.com/tsl0741/ttyd")
 	}
 
-	// Build command: ttyd -p <port> sh -c <command>
-	s.cmd = exec.CommandContext(ctx, ttydPath, "-p", strconv.Itoa(s.Port), "sh", "-c", s.Command)
+	// Build ttyd command with options matching VHS configuration
+	// These client options (-t) are passed to xterm.js for proper terminal emulation
+	args := []string{
+		"-p", strconv.Itoa(s.Port),
+		"--interface", "127.0.0.1",
+		"-t", "rendererType=canvas",
+		"-t", "disableResizeOverlay=true",
+		"-t", "enableSixel=true",
+		"-t", "customGlyphs=true",
+		"--writable",
+		"bash", "--norc", "--noprofile", "-c", s.Command,
+	}
+
+	s.cmd = exec.CommandContext(ctx, ttydPath, args...)
+
+	// Set environment for proper terminal emulation
+	s.cmd.Env = append(os.Environ(),
+		"TERM=xterm-256color",
+		"COLORTERM=truecolor",
+		"PS1=> ",
+	)
 
 	// Attach stderr to capture error output
 	s.cmd.Stderr = &s.stderr
@@ -95,11 +114,11 @@ func (s *TTydServer) Start(ctx context.Context) error {
 
 		resp, err := client.Do(req)
 		if err == nil && resp.StatusCode != http.StatusNotFound {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			return nil
 		}
 		if resp != nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}
 
 		time.Sleep(100 * time.Millisecond)
