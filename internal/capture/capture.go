@@ -88,6 +88,13 @@ func (c *Capturer) Run(ctx context.Context) error {
 		return fmt.Errorf("set viewport: %w", err)
 	}
 
+	// Wait for xterm terminal to be ready
+	if err := chromedp.Run(browserCtx,
+		chromedp.WaitVisible(".xterm-screen", chromedp.ByQuery),
+	); err != nil {
+		return fmt.Errorf("wait for terminal: %w", err)
+	}
+
 	// Capture initial screenshot at t=0
 	if c.config.Verbose {
 		fmt.Fprintf(os.Stderr, "Capturing initial screenshot\n")
@@ -242,13 +249,15 @@ func (c *Capturer) captureIntervalScreenshots(ctx context.Context, stopChan chan
 	}
 }
 
-// captureScreenshot uses chromedp to capture a PNG screenshot and saves it
-// to the specified filename.
+// captureScreenshot captures the terminal and saves it as PNG.
 // Returns an error if the capture or save fails.
 func (c *Capturer) captureScreenshot(ctx context.Context, filename string) error {
-	// Capture screenshot using chromedp to byte slice
 	var buf []byte
-	err := chromedp.Run(ctx, chromedp.CaptureScreenshot(&buf))
+
+	// Capture the terminal container element
+	err := chromedp.Run(ctx,
+		chromedp.Screenshot("#terminal-container", &buf, chromedp.NodeVisible, chromedp.ByID),
+	)
 	if err != nil {
 		return fmt.Errorf("capture screenshot: %w", err)
 	}
@@ -256,7 +265,7 @@ func (c *Capturer) captureScreenshot(ctx context.Context, filename string) error
 	// Write the captured screenshot data to file
 	err = os.WriteFile(filename, buf, 0o644)
 	if err != nil {
-		return fmt.Errorf("capture screenshot: %w", err)
+		return fmt.Errorf("write screenshot: %w", err)
 	}
 
 	return nil
