@@ -109,6 +109,177 @@ func TestSignalHandling_WiredUp(t *testing.T) {
 	})
 }
 
+// TestNewRootCommand_PositionalArgs tests the new CLI with positional arguments.
+func TestNewRootCommand_PositionalArgs(t *testing.T) {
+	tests := []struct {
+		name       string
+		args       []string
+		wantErr    bool
+		errContain string
+	}{
+		{
+			name:    "command only - no script",
+			args:    []string{"bash"},
+			wantErr: false,
+		},
+		{
+			name:    "command with script",
+			args:    []string{"bash", "Type 'echo hello' Enter"},
+			wantErr: false,
+		},
+		{
+			name:       "no arguments fails",
+			args:       []string{},
+			wantErr:    true,
+			errContain: "COMMAND is required",
+		},
+		{
+			name:       "too many arguments fails",
+			args:       []string{"bash", "script", "extra"},
+			wantErr:    true,
+			errContain: "accepts between 0 and 2 arg",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := NewRootCommand()
+			cmd.SetArgs(tt.args)
+			cmd.SetOut(bytes.NewBuffer(nil))
+			cmd.SetErr(bytes.NewBuffer(nil))
+
+			err := cmd.Execute()
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errContain != "" {
+					assert.Contains(t, err.Error(), tt.errContain)
+				}
+			}
+		})
+	}
+}
+
+// TestNewRootCommand_ShortFlags tests that short flags work correctly.
+func TestNewRootCommand_ShortFlags(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{
+			name: "short output flag",
+			args: []string{"-o", "/tmp/out", "bash"},
+		},
+		{
+			name: "short interval flag",
+			args: []string{"-i", "1s", "bash"},
+		},
+		{
+			name: "short timeout flag",
+			args: []string{"-t", "30s", "bash"},
+		},
+		{
+			name: "short port flag",
+			args: []string{"-p", "8080", "bash"},
+		},
+		{
+			name: "short verbose flag",
+			args: []string{"-v", "bash"},
+		},
+		{
+			name: "all short flags",
+			args: []string{"-o", "/tmp/out", "-i", "1s", "-t", "30s", "-p", "8080", "-v", "bash"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := NewRootCommand()
+			cmd.SetArgs(tt.args)
+			cmd.SetOut(bytes.NewBuffer(nil))
+			cmd.SetErr(bytes.NewBuffer(nil))
+
+			// Should not fail due to flag parsing errors
+			err := cmd.Execute()
+			// Command may fail due to missing deps but not due to flag parsing
+			if err != nil {
+				assert.NotContains(t, err.Error(), "unknown flag")
+				assert.NotContains(t, err.Error(), "bad flag")
+			}
+		})
+	}
+}
+
+// TestNewRootCommand_DeprecatedFlags tests that deprecated flags still work with warning.
+func TestNewRootCommand_DeprecatedFlags(t *testing.T) {
+	var buf bytes.Buffer
+	cmd := NewRootCommand()
+	cmd.SetArgs([]string{
+		"--command", "bash",
+		"--keypresses", "a,b,c",
+		"--delays", "500ms,1s",
+	})
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+
+	// Execute should work with deprecated flags (though may error on execution)
+	err := cmd.Execute()
+	// Should not fail due to flag parsing
+	if err != nil {
+		assert.NotContains(t, err.Error(), "unknown flag")
+	}
+
+	// Output should contain deprecation warning
+	output := buf.String()
+	assert.Contains(t, output, "deprecated")
+}
+
+// TestNewRootCommand_MixedArgsAndFlags tests error when mixing positional args and deprecated flags.
+func TestNewRootCommand_MixedArgsAndFlags(t *testing.T) {
+	var buf bytes.Buffer
+	cmd := NewRootCommand()
+	cmd.SetArgs([]string{
+		"bash",            // positional arg
+		"--command", "sh", // deprecated flag
+	})
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+
+	err := cmd.Execute()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot use both positional arguments and deprecated flags")
+}
+
+// TestNewRootCommand_CommandName verifies the command name is 'scr'.
+func TestNewRootCommand_CommandName(t *testing.T) {
+	cmd := NewRootCommand()
+	assert.Equal(t, "scr", cmd.Name())
+	assert.Contains(t, cmd.Use, "scr")
+}
+
+// TestNewRootCommand_HelpOutput verifies help shows new syntax.
+func TestNewRootCommand_HelpOutput(t *testing.T) {
+	var buf bytes.Buffer
+	cmd := NewRootCommand()
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetArgs([]string{"--help"})
+
+	err := cmd.Execute()
+	assert.NoError(t, err)
+
+	output := buf.String()
+	// Should show new positional arg syntax
+	assert.Contains(t, output, "scr [flags]")
+	assert.Contains(t, output, "scr [flags] COMMAND")
+	assert.Contains(t, output, "scr [flags] COMMAND SCRIPT")
+	// Should show short flags
+	assert.Contains(t, output, "-o, --out")
+	assert.Contains(t, output, "-i, --interval")
+	assert.Contains(t, output, "-t, --timeout")
+	assert.Contains(t, output, "-p, --port")
+	assert.Contains(t, output, "-v, --verbose")
+}
+
 // TestRunCommand_ExecutesCapture tests that runCommand creates a capturer and executes the capture workflow.
 // This test verifies the capture execution is wired up correctly.
 func TestRunCommand_ExecutesCapture(t *testing.T) {

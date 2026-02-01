@@ -2,6 +2,7 @@
 .lgtm/
 PRD.md
 /tui-capture
+scr
 
 # Generated screenshot artifacts
 /cmd/screenshots/

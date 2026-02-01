@@ -157,9 +157,9 @@ func TestParseConfig_Success(t *testing.T) {
 	cmd.Flags().String("command", "echo hello", "")
 	cmd.Flags().StringSlice("keypresses", []string{"a", "b"}, "")
 	cmd.Flags().DurationSlice("delays", []time.Duration{100 * time.Millisecond}, "")
-	cmd.Flags().String("output-dir", "/tmp/output", "")
-	cmd.Flags().Duration("screenshot-interval", 500*time.Millisecond, "")
-	cmd.Flags().Int("ttyd-port", 8080, "")
+	cmd.Flags().String("out", "/tmp/output", "")
+	cmd.Flags().Duration("interval", 500*time.Millisecond, "")
+	cmd.Flags().Int("port", 8080, "")
 	cmd.Flags().Duration("timeout", 30*time.Second, "")
 	cmd.Flags().Bool("verbose", false, "")
 

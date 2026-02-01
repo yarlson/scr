@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/yarlson/scr/internal/script"
 )
 
 // Config holds the configuration for the TUI screen capture application.
@@ -17,52 +19,118 @@ type Config struct {
 	TTydPort           int
 	Timeout            time.Duration
 	Verbose            bool
+	Actions            []script.Action
+	Script             string
 }
 
 // ParseConfig extracts configuration from Cobra command flags.
+// Supports both new short flags and deprecated long flags.
+// Deprecated: This function is no longer used internally. It is kept for backward
+// compatibility with external callers who may depend on it. Use flag parsing
+// directly in cmd/main.go instead.
 func ParseConfig(cmd *cobra.Command) (*Config, error) {
 	if cmd == nil {
 		return nil, fmt.Errorf("command must not be nil")
 	}
 
-	command, err := cmd.Flags().GetString("command")
-	if err != nil {
-		return nil, fmt.Errorf("get command flag: %w", err)
-	}
+	// Check which flag set is being used
+	usingNewFlags := cmd.Flags().Changed("out") || cmd.Flags().Changed("interval") ||
+		cmd.Flags().Changed("port") || cmd.Flags().Changed("timeout")
+	usingDeprecatedFlags := cmd.Flags().Changed("command") || cmd.Flags().Changed("keypresses") ||
+		cmd.Flags().Changed("delays") || cmd.Flags().Changed("output-dir")
 
-	keypresses, err := cmd.Flags().GetStringSlice("keypresses")
-	if err != nil {
-		return nil, fmt.Errorf("get keypresses flag: %w", err)
-	}
+	var command string
+	var keypresses []string
+	var delays []time.Duration
+	var outputDir string
+	var screenshotInterval time.Duration
+	var ttydPort int
+	var timeout time.Duration
+	var verbose bool
+	var err error
 
-	delays, err := cmd.Flags().GetDurationSlice("delays")
-	if err != nil {
-		return nil, fmt.Errorf("get delays flag: %w", err)
-	}
+	if usingNewFlags || !usingDeprecatedFlags {
+		// Use new short flags
+		command, err = cmd.Flags().GetString("command")
+		if err != nil {
+			return nil, fmt.Errorf("get command flag: %w", err)
+		}
 
-	outputDir, err := cmd.Flags().GetString("output-dir")
-	if err != nil {
-		return nil, fmt.Errorf("get output-dir flag: %w", err)
-	}
+		keypresses, err = cmd.Flags().GetStringSlice("keypresses")
+		if err != nil {
+			return nil, fmt.Errorf("get keypresses flag: %w", err)
+		}
 
-	screenshotInterval, err := cmd.Flags().GetDuration("screenshot-interval")
-	if err != nil {
-		return nil, fmt.Errorf("get screenshot-interval flag: %w", err)
-	}
+		delays, err = cmd.Flags().GetDurationSlice("delays")
+		if err != nil {
+			return nil, fmt.Errorf("get delays flag: %w", err)
+		}
 
-	ttydPort, err := cmd.Flags().GetInt("ttyd-port")
-	if err != nil {
-		return nil, fmt.Errorf("get ttyd-port flag: %w", err)
-	}
+		outputDir, err = cmd.Flags().GetString("out")
+		if err != nil {
+			return nil, fmt.Errorf("get out flag: %w", err)
+		}
 
-	timeout, err := cmd.Flags().GetDuration("timeout")
-	if err != nil {
-		return nil, fmt.Errorf("get timeout flag: %w", err)
-	}
+		screenshotInterval, err = cmd.Flags().GetDuration("interval")
+		if err != nil {
+			return nil, fmt.Errorf("get interval flag: %w", err)
+		}
 
-	verbose, err := cmd.Flags().GetBool("verbose")
-	if err != nil {
-		return nil, fmt.Errorf("get verbose flag: %w", err)
+		ttydPort, err = cmd.Flags().GetInt("port")
+		if err != nil {
+			return nil, fmt.Errorf("get port flag: %w", err)
+		}
+
+		timeout, err = cmd.Flags().GetDuration("timeout")
+		if err != nil {
+			return nil, fmt.Errorf("get timeout flag: %w", err)
+		}
+
+		verbose, err = cmd.Flags().GetBool("verbose")
+		if err != nil {
+			return nil, fmt.Errorf("get verbose flag: %w", err)
+		}
+	} else {
+		// Use deprecated long flags
+		command, err = cmd.Flags().GetString("command")
+		if err != nil {
+			return nil, fmt.Errorf("get command flag: %w", err)
+		}
+
+		keypresses, err = cmd.Flags().GetStringSlice("keypresses")
+		if err != nil {
+			return nil, fmt.Errorf("get keypresses flag: %w", err)
+		}
+
+		delays, err = cmd.Flags().GetDurationSlice("delays")
+		if err != nil {
+			return nil, fmt.Errorf("get delays flag: %w", err)
+		}
+
+		outputDir, err = cmd.Flags().GetString("output-dir")
+		if err != nil {
+			return nil, fmt.Errorf("get output-dir flag: %w", err)
+		}
+
+		screenshotInterval, err = cmd.Flags().GetDuration("screenshot-interval")
+		if err != nil {
+			return nil, fmt.Errorf("get screenshot-interval flag: %w", err)
+		}
+
+		ttydPort, err = cmd.Flags().GetInt("ttyd-port")
+		if err != nil {
+			return nil, fmt.Errorf("get ttyd-port flag: %w", err)
+		}
+
+		timeout, err = cmd.Flags().GetDuration("timeout")
+		if err != nil {
+			return nil, fmt.Errorf("get timeout flag: %w", err)
+		}
+
+		verbose, err = cmd.Flags().GetBool("verbose")
+		if err != nil {
+			return nil, fmt.Errorf("get verbose flag: %w", err)
+		}
 	}
 
 	return &Config{
@@ -99,12 +167,15 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("timeout must be > 0")
 	}
 
-	if len(c.Keypresses) == 0 {
-		return fmt.Errorf("keypresses must not be empty")
-	}
+	// Only validate keypresses/delays if not using script-based interface
+	if c.Script == "" {
+		if len(c.Keypresses) == 0 {
+			return fmt.Errorf("keypresses must not be empty")
+		}
 
-	if len(c.Delays) != len(c.Keypresses)-1 {
-		return fmt.Errorf("delays length must be equal to keypresses length - 1")
+		if len(c.Delays) != len(c.Keypresses)-1 {
+			return fmt.Errorf("delays length must be equal to keypresses length - 1")
+		}
 	}
 
 	return nil
