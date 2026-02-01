@@ -34,7 +34,6 @@ archives:
       {{- title .Os }}_
       {{- if eq .Arch "amd64" }}x86_64
       {{- else }}{{ .Arch }}{{ end }}
-    wrap_in_directory: true
     files:
       - README*
       - LICENSE*
