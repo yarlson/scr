@@ -167,8 +167,8 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("timeout must be > 0")
 	}
 
-	// Only validate keypresses/delays if not using script-based interface
-	if c.Script == "" {
+	// Only validate keypresses/delays if not using script-based interface or Actions
+	if c.Script == "" && len(c.Actions) == 0 {
 		if len(c.Keypresses) == 0 {
 			return fmt.Errorf("keypresses must not be empty")
 		}

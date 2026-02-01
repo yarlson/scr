@@ -14,6 +14,7 @@ import (
 
 	"github.com/yarlson/scr/internal/config"
 	inputpkg "github.com/yarlson/scr/internal/input"
+	"github.com/yarlson/scr/internal/script"
 )
 
 // Capturer orchestrates the TUI interaction workflow, connecting ttyd,
@@ -115,34 +116,9 @@ func (c *Capturer) Run(ctx context.Context) error {
 		}()
 	}
 
-	// Send keypresses with configured delays
-	for i, key := range c.config.Keypresses {
-		// Wait for delay before sending key (except for first key)
-		if i > 0 && i-1 < len(c.config.Delays) {
-			delay := c.config.Delays[i-1]
-			if c.config.Verbose {
-				fmt.Fprintf(os.Stderr, "Waiting %v before sending keypress %d\n", delay, i)
-			}
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(delay):
-				// continue
-			}
-		}
-
-		if c.config.Verbose {
-			fmt.Fprintf(os.Stderr, "Sending keypress: %s\n", key)
-		}
-
-		if err := c.sendKeypress(browserCtx, key); err != nil {
-			// Stop interval goroutine before returning error
-			if intervalStopChan != nil {
-				close(intervalStopChan)
-				wg.Wait()
-			}
-			return fmt.Errorf("send keypress %d (%s): %w", i, key, err)
-		}
+	// Execute actions directly
+	if err := c.executeActions(ctx, browserCtx, intervalStopChan, &wg); err != nil {
+		return err
 	}
 
 	// Stop interval-based screenshots
@@ -190,15 +166,10 @@ func (c *Capturer) sendKeypress(ctx context.Context, key string) error {
 // sendCtrlKeypress sends a Ctrl+key combination using chromedp.KeyEvent with modifiers.
 func (c *Capturer) sendCtrlKeypress(ctx context.Context, key string) error {
 	lowerKey := strings.ToLower(key)
-	var keyChar string
-	switch lowerKey {
-	case "ctrl+c":
-		keyChar = "c"
-	case "ctrl+d":
-		keyChar = "d"
-	default:
-		return fmt.Errorf("unsupported Ctrl key: %s", key)
+	if !strings.HasPrefix(lowerKey, "ctrl+") || len(lowerKey) != 6 {
+		return fmt.Errorf("invalid Ctrl key format: %s", key)
 	}
+	keyChar := lowerKey[5:] // Extract the character after "ctrl+"
 
 	// Use chromedp.KeyEvent with Ctrl modifier
 	return chromedp.Run(ctx, chromedp.KeyEvent(keyChar, chromedp.KeyModifiers(input.ModifierCtrl)))
@@ -207,7 +178,205 @@ func (c *Capturer) sendCtrlKeypress(ctx context.Context, key string) error {
 // isCtrlKey checks if a key is a Ctrl key combination.
 func (c *Capturer) isCtrlKey(key string) bool {
 	lowerKey := strings.ToLower(key)
-	return lowerKey == "ctrl+c" || lowerKey == "ctrl+d"
+	return strings.HasPrefix(lowerKey, "ctrl+") && len(lowerKey) == 6
+}
+
+// executeActions executes the configured actions in sequence.
+// It handles ActionType, ActionSleep, ActionKey, and ActionCtrl.
+// All blocking operations respect ctx.Done() for graceful shutdown.
+func (c *Capturer) executeActions(ctx, browserCtx context.Context, intervalStopChan chan struct{}, wg *sync.WaitGroup) error {
+	// Determine which action set to use
+	actions := c.config.Actions
+	useActions := len(actions) > 0
+
+	if !useActions {
+		// Fall back to legacy keypresses/delays for backward compatibility
+		return c.executeKeypresses(ctx, browserCtx, intervalStopChan, wg)
+	}
+
+	for i, action := range actions {
+		if err := c.executeSingleAction(ctx, browserCtx, action, i, intervalStopChan, wg); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// executeSingleAction executes a single action based on its kind.
+func (c *Capturer) executeSingleAction(ctx, browserCtx context.Context, action script.Action, index int, intervalStopChan chan struct{}, wg *sync.WaitGroup) error {
+	switch action.Kind {
+	case script.ActionType:
+		return c.executeTypeAction(ctx, browserCtx, action, index, intervalStopChan, wg)
+	case script.ActionSleep:
+		return c.executeSleepAction(ctx, action, index)
+	case script.ActionKey:
+		return c.executeKeyAction(ctx, browserCtx, action, index, intervalStopChan, wg)
+	case script.ActionCtrl:
+		return c.executeCtrlAction(ctx, browserCtx, action, index, intervalStopChan, wg)
+	default:
+		return fmt.Errorf("unknown action kind: %v", action.Kind)
+	}
+}
+
+// executeTypeAction executes a type action by sending each character with per-char delay.
+func (c *Capturer) executeTypeAction(ctx, browserCtx context.Context, action script.Action, index int, intervalStopChan chan struct{}, wg *sync.WaitGroup) error {
+	for _, char := range action.Text {
+		// Check for context cancellation before each character
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		if c.config.Verbose {
+			fmt.Fprintf(os.Stderr, "Sending character: %s\n", string(char))
+		}
+
+		if err := c.sendKeypress(browserCtx, string(char)); err != nil {
+			if intervalStopChan != nil {
+				close(intervalStopChan)
+				wg.Wait()
+			}
+			return fmt.Errorf("send character %q: %w", char, err)
+		}
+
+		// Sleep for per-character speed
+		if action.Speed > 0 {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(action.Speed):
+				// continue
+			}
+		}
+	}
+
+	// Apply post-action delay if specified
+	if action.Delay > 0 {
+		if c.config.Verbose {
+			fmt.Fprintf(os.Stderr, "Waiting %v after type action %d\n", action.Delay, index)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(action.Delay):
+			// continue
+		}
+	}
+
+	return nil
+}
+
+// executeSleepAction executes a sleep action with context-aware cancellation.
+func (c *Capturer) executeSleepAction(ctx context.Context, action script.Action, index int) error {
+	if c.config.Verbose {
+		fmt.Fprintf(os.Stderr, "Sleeping for %v (action %d)\n", action.Duration, index)
+	}
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(action.Duration):
+		// continue
+	}
+
+	return nil
+}
+
+// executeKeyAction executes a key action with optional delay and repeat count.
+func (c *Capturer) executeKeyAction(ctx, browserCtx context.Context, action script.Action, index int, intervalStopChan chan struct{}, wg *sync.WaitGroup) error {
+	// Determine repeat count (defaults to 1)
+	repeat := action.Repeat
+	if repeat <= 0 {
+		repeat = 1
+	}
+
+	for i := 0; i < repeat; i++ {
+		// Check for context cancellation
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		if c.config.Verbose {
+			fmt.Fprintf(os.Stderr, "Sending keypress: %s (repeat %d/%d)\n", action.Key, i+1, repeat)
+		}
+
+		if err := c.sendKeypress(browserCtx, action.Key); err != nil {
+			if intervalStopChan != nil {
+				close(intervalStopChan)
+				wg.Wait()
+			}
+			return fmt.Errorf("send key %q (repeat %d): %w", action.Key, i+1, err)
+		}
+	}
+
+	// Apply post-action delay if specified
+	if action.Delay > 0 {
+		if c.config.Verbose {
+			fmt.Fprintf(os.Stderr, "Waiting %v after key action %d\n", action.Delay, index)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(action.Delay):
+			// continue
+		}
+	}
+
+	return nil
+}
+
+// executeCtrlAction executes a control key combination action.
+func (c *Capturer) executeCtrlAction(ctx, browserCtx context.Context, action script.Action, index int, intervalStopChan chan struct{}, wg *sync.WaitGroup) error {
+	if c.config.Verbose {
+		fmt.Fprintf(os.Stderr, "Sending Ctrl+%s (action %d)\n", action.Key, index)
+	}
+
+	if err := c.sendCtrlKeypress(browserCtx, "ctrl+"+action.Key); err != nil {
+		if intervalStopChan != nil {
+			close(intervalStopChan)
+			wg.Wait()
+		}
+		return fmt.Errorf("send Ctrl+%s: %w", action.Key, err)
+	}
+
+	return nil
+}
+
+// executeKeypresses executes the legacy keypresses/delays configuration.
+func (c *Capturer) executeKeypresses(ctx, browserCtx context.Context, intervalStopChan chan struct{}, wg *sync.WaitGroup) error {
+	for i, key := range c.config.Keypresses {
+		// Wait for delay before sending key (except for first key)
+		if i > 0 && i-1 < len(c.config.Delays) {
+			delay := c.config.Delays[i-1]
+			if c.config.Verbose {
+				fmt.Fprintf(os.Stderr, "Waiting %v before sending keypress %d\n", delay, i)
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(delay):
+				// continue
+			}
+		}
+
+		if c.config.Verbose {
+			fmt.Fprintf(os.Stderr, "Sending keypress: %s\n", key)
+		}
+
+		if err := c.sendKeypress(browserCtx, key); err != nil {
+			if intervalStopChan != nil {
+				close(intervalStopChan)
+				wg.Wait()
+			}
+			return fmt.Errorf("send keypress %d (%s): %w", i, key, err)
+		}
+	}
+
+	return nil
 }
 
 // getScreenshotFilename returns the filename for the next screenshot

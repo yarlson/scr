@@ -6,6 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/yarlson/scr/internal/script"
 )
 
 func TestValidate_ValidConfig(t *testing.T) {
@@ -181,4 +183,39 @@ func TestParseConfig_NilCommand(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, cfg)
 	assert.Contains(t, err.Error(), "command must not be nil")
+}
+
+func TestValidate_ActionsNotEmpty(t *testing.T) {
+	cfg := &Config{
+		Command:            "echo hello",
+		Keypresses:         []string{}, // Empty keypresses OK when using Actions
+		Delays:             []time.Duration{},
+		OutputDir:          "/tmp/output",
+		ScreenshotInterval: 500 * time.Millisecond,
+		TTydPort:           8080,
+		Timeout:            30 * time.Second,
+		Actions: []script.Action{
+			{Kind: script.ActionType, Text: "hello"},
+		},
+		Script: "Type 'hello'",
+	}
+
+	err := cfg.Validate()
+	assert.NoError(t, err, "validation should pass when Actions is not empty")
+}
+
+func TestValidate_ScriptNotEmpty(t *testing.T) {
+	cfg := &Config{
+		Command:            "echo hello",
+		Keypresses:         []string{}, // Empty keypresses OK when using Script
+		Delays:             []time.Duration{},
+		OutputDir:          "/tmp/output",
+		ScreenshotInterval: 500 * time.Millisecond,
+		TTydPort:           8080,
+		Timeout:            30 * time.Second,
+		Script:             "Type 'hello'",
+	}
+
+	err := cfg.Validate()
+	assert.NoError(t, err, "validation should pass when Script is not empty")
 }

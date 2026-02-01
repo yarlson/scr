@@ -145,36 +145,9 @@ func runWithPositionalArgs(cmd *cobra.Command, command, scriptStr string) error 
 		actions = parsedActions
 	}
 
-	// Convert script actions to keypresses and delays for backward compatibility
-	var keypresses []string
-	var delays []time.Duration
-	if len(actions) > 0 {
-		for _, action := range actions {
-			switch action.Kind {
-			case script.ActionType:
-				for _, char := range action.Text {
-					keypresses = append(keypresses, string(char))
-				}
-			case script.ActionKey:
-				keypresses = append(keypresses, action.Key)
-			case script.ActionCtrl:
-				keypresses = append(keypresses, "ctrl+"+action.Key)
-			case script.ActionSleep:
-				if len(delays) > 0 {
-					// Accumulate consecutive sleep durations into a single delay
-					delays[len(delays)-1] += action.Duration
-				} else {
-					delays = append(delays, action.Duration)
-				}
-			}
-		}
-	}
-
-	// Create config
+	// Create config - pass actions directly to capture engine
 	cfg := &config.Config{
 		Command:            command,
-		Keypresses:         keypresses,
-		Delays:             delays,
 		OutputDir:          outputDir,
 		ScreenshotInterval: screenshotInterval,
 		TTydPort:           ttydPort,
